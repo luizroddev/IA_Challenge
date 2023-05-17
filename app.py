@@ -4,6 +4,8 @@ import pandas as pd
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 import numpy as np
+from PIL import Image
+
 
 # Ajuste das pastas de template e assets
 
@@ -24,8 +26,8 @@ def home():
     return render_template("homepage.html")
 
 # Pagina Forms que é preenchido pelo usuario
-@app.route('/dados_flor')
-def dados_flor():
+@app.route('/dados_pokemon')
+def dados_pokemon():
     return render_template("form.html")
 
 
@@ -44,17 +46,20 @@ def get_data():
 def show_data():
 
     try:
-
         f = request.files['img_pokemon']
         print(f.filename)
         filename = secure_filename(f.filename)
         fullfilename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         f.save(fullfilename)
-        # f.save(os.path.join('uploads', filename))
+
+        # Try to open the file as an image. If it's not an image, an exception will be thrown.
+        try:
+            Image.open(fullfilename)
+        except IOError:
+            return 'Erro: arquivo não é uma imagem válida', 400
 
         outcome = filename
-        imagem = fullfilename
-        print(imagem)
+        imagem = filename
         # class_name = model.classify(os.path.join('uploads', filename))
         # df = get_data()
         # df = df[['sepal_length', 'sepal_width', 'petal_length', 'petal_width']]
@@ -73,8 +78,8 @@ def show_data():
         #     imagem = 'Iris_versicolor.jpg'
 
     except ValueError as e:
-        outcome = 'OPAAAA você digitou coisa errada! '+str(e).split('\n')[-1].strip()
-        imagem = 'flor.png'
+        outcome = 'OPAAAA você enviou coisa errada! '+str(e).split('\n')[-1].strip()
+        imagem = 'pokemon.png'
     
     return render_template('result.html', tables=[],
                            result=outcome, imagem=imagem)
@@ -82,10 +87,11 @@ def show_data():
     #                        result=outcome, imagem=imagem)
 
 # retorna o a predição formatada em JSON para uma solicitação HTTP
-@app.route('/results',methods=['POST'])
+@app.route('/results', methods=['POST'])
 def results():
 
     data = request.get_json(force=True)
+    print(data)
 
     try:
          prediction = modelo_pipeline.predict([np.array(list(data.values()))])
