@@ -3,6 +3,8 @@ import os
 import pandas as pd
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.models import load_model
 import numpy as np
 from PIL import Image
 
@@ -11,102 +13,55 @@ from PIL import Image
 
 POKEMON_FOLDER = os.path.join('template/assets', 'pokemons')
 
-app = Flask(__name__, template_folder='template', static_folder='template/assets')
+app = Flask(__name__, template_folder='template',
+            static_folder='template/assets')
 app.config['UPLOAD_FOLDER'] = POKEMON_FOLDER
 
 
-
 # Import do modelo já treinado e salvo (essa parte foi feita no jupyter notebook)
-modelo_pipeline = pickle.load(open('./models/models.pkl', 'rb'))
-
+modelo_pipeline = load_model('./models/my_model.h5')
 
 # Pagina principal
+
+
 @app.route('/')
 def home():
-    return render_template("homepage.html")
-
-# Pagina Forms que é preenchido pelo usuario
-@app.route('/dados_pokemon')
-def dados_pokemon():
-    return render_template("form.html")
+    return render_template('form_result.html', tables=[],
+                           result="", imagem="")
 
 
-def get_data():
-    img_pokemon = request.form.get('img_pokemon')
+Dataset_Labels = ['Porygon', 'Goldeen', 'Hitmonlee', 'Hitmonchan', 'Gloom', 'Aerodactyl', 'Mankey', 'Seadra', 'Gengar', 'Venonat', 'Articuno', 'Seaking', 'Dugtrio', 'Machop', 'Jynx', 'Oddish', 'Dodrio', 'Dragonair', 'Weedle', 'Golduck', 'Flareon', 'Krabby', 'Parasect', 'Ninetales', 'Nidoqueen', 'Kabutops', 'Drowzee', 'Caterpie', 'Jigglypuff', 'Machamp', 'Clefairy', 'Kangaskhan', 'Dragonite', 'Weepinbell', 'Fearow', 'Bellsprout', 'Grimer', 'Nidorina', 'Staryu', 'Horsea', 'Electabuzz', 'Dratini', 'Machoke', 'Magnemite', 'Squirtle', 'Gyarados', 'Pidgeot', 'Bulbasaur', 'Nidoking', 'Golem', 'Dewgong', 'Moltres', 'Zapdos', 'Poliwrath', 'Vulpix', 'Beedrill', 'Charmander', 'Abra', 'Zubat', 'Golbat', 'Wigglytuff', 'Charizard', 'Slowpoke', 'Poliwag', 'Tentacruel', 'Rhyhorn', 'Onix', 'Butterfree', 'Exeggcute', 'Sandslash', 'Pinsir', 'Rattata', 'Growlithe',
+                  'Haunter', 'Pidgey', 'Ditto', 'Farfetchd', 'Pikachu', 'Raticate', 'Wartortle', 'Vaporeon', 'Cloyster', 'Hypno', 'Arbok', 'Metapod', 'Tangela', 'Kingler', 'Exeggutor', 'Kadabra', 'Seel', 'Voltorb', 'Chansey', 'Venomoth', 'Ponyta', 'Vileplume', 'Koffing', 'Blastoise', 'Tentacool', 'Lickitung', 'Paras', 'Clefable', 'Cubone', 'Marowak', 'Nidorino', 'Jolteon', 'Muk', 'Magikarp', 'Slowbro', 'Tauros', 'Kabuto', 'Spearow', 'Sandshrew', 'Eevee', 'Kakuna', 'Omastar', 'Ekans', 'Geodude', 'Magmar', 'Snorlax', 'Meowth', 'Pidgeotto', 'Venusaur', 'Persian', 'Rhydon', 'Starmie', 'Charmeleon', 'Lapras', 'Alakazam', 'Graveler', 'Psyduck', 'Rapidash', 'Doduo', 'Magneton', 'Arcanine', 'Electrode', 'Omanyte', 'Poliwhirl', 'Mew', 'Alolan Sandslash', 'Mewtwo', 'Weezing', 'Gastly', 'Victreebel', 'Ivysaur', 'MrMime', 'Shellder', 'Scyther', 'Diglett', 'Primeape', 'Raichu']
+
+# Renderiza o resultado predito pelo modelo ML na Webpage
 
 
-    d_dict = {'img_pokemon': [img_pokemon]}
-
-    return pd.DataFrame.from_dict(d_dict, orient='columns')
-
-    
-
-## Renderiza o resultado predito pelo modelo ML na Webpage
 @app.route('/send', methods=['POST'])
 def show_data():
 
     try:
         f = request.files['img_pokemon']
-        print(f.filename)
         filename = secure_filename(f.filename)
         fullfilename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         f.save(fullfilename)
 
-        # Try to open the file as an image. If it's not an image, an exception will be thrown.
-        try:
-            Image.open(fullfilename)
-        except IOError:
-            return 'Erro: arquivo não é uma imagem válida', 400
-
-        outcome = filename
         imagem = filename
-        # class_name = model.classify(os.path.join('uploads', filename))
-        # df = get_data()
-        # df = df[['sepal_length', 'sepal_width', 'petal_length', 'petal_width']]
+        img = image.load_img(fullfilename, target_size=(224, 224))
 
-        # Faz a predição com os dados digitados pelo usuario
-        # prediction = modelo_pipeline.predict(df)
+        img_tensor = image.img_to_array(img)
+        img_tensor = np.expand_dims(img_tensor, axis=0)
 
-        # if prediction == 'Iris-virginica':
-        #     outcome = 'OPAAAA é uma Iris-virginica!'
-        #     imagem = 'Iris_virginica.jpg'
-        # elif prediction == 'Iris-setosa':
-        #     outcome = 'Quem diria, é uma Iris-setosa!'
-        #     imagem = 'Iris_setosa.jpg'
-        # else:
-        #     outcome = 'Eu jurava que não era uma Iris-versicolor!'
-        #     imagem = 'Iris_versicolor.jpg'
+        prediction = modelo_pipeline.predict(img_tensor)
+        predicted_class = np.argmax(prediction)
+        outcome = Dataset_Labels[predicted_class]
 
     except ValueError as e:
-        outcome = 'OPAAAA você enviou coisa errada! '+str(e).split('\n')[-1].strip()
+        outcome = 'OPAAAA você enviou coisa errada! ' + \
+            str(e).split('\n')[-1].strip()
         imagem = 'pokemon.png'
-    
-    return render_template('result.html', tables=[],
+
+    return render_template('form_result.html', tables=[],
                            result=outcome, imagem=imagem)
-    # return render_template('result.html', tables=[df.to_html(classes='data', header=True, col_space=10)],
-    #                        result=outcome, imagem=imagem)
-
-# retorna o a predição formatada em JSON para uma solicitação HTTP
-@app.route('/results', methods=['POST'])
-def results():
-
-    data = request.get_json(force=True)
-    print(data)
-
-    try:
-         prediction = modelo_pipeline.predict([np.array(list(data.values()))])
-         output = {
-        'status': 200,
-        'prediction': prediction[0]
-        }
-         
-    except ValueError as e:
-        output = {
-        'status': 500,
-        'prediction': str(e).split('\n')[-1].strip()
-        }
-   
-    return jsonify(output)
 
 
 if __name__ == "__main__":
